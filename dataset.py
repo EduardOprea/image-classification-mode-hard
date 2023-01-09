@@ -39,7 +39,7 @@ class Dataset(torchvision.datasets.VisionDataset):
     def __getitem__(self, index: int) -> Any:
         img_path = self.dataset_info.iloc[index]['sample']
         label = self.dataset_info.iloc[index]['label']
-        img = Image.open(os.path.join(self.rootdir, img_path))
+        img = self.pil_loader(os.path.join(self.rootdir, img_path))
         return self.transforms(img), label
         # img, label = self.images_labels[index]
         # return img, label
