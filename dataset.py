@@ -4,6 +4,7 @@ import torchvision
 from PIL import Image
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 class Dataset(torchvision.datasets.VisionDataset):
     def __init__(self, root: str, dataset_info: pd.DataFrame,
@@ -21,7 +22,7 @@ class Dataset(torchvision.datasets.VisionDataset):
     def get_pil_imgs(self, df: pd.DataFrame):
         df  = df.reset_index()
         images_labels_pairs = []
-        for index, row in df.iterrows():
+        for index, row in tqdm(df.iterrows()):
             img_path = row['sample']
             label = row['label']
             img = self.pil_loader(os.path.join(self.rootdir, img_path))

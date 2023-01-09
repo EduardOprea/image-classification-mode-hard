@@ -145,7 +145,7 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser(
         description='CLI for training an image classifier')
 
-    parser.add_argument('--model', type=str, default="resnet50",
+    parser.add_argument('--model_name', type=str, default="resnet50",
                         help="Name of convnet model")
 
     parser.add_argument('--batch_size', type=int, default=16,
@@ -201,9 +201,6 @@ if __name__ == '__main__':
     dataset = Dataset(args.rootdir, df, preprocess)
     [train_set, val_set] = random_split(dataset, [0.8, 0.2])
     train_loader = DataLoader(train_set, shuffle = True, batch_size=args.batch_size)
-
-    for inputs, targets in tqdm(train_loader):
-        print('aici')
     val_loader = DataLoader(val_set, shuffle = True, batch_size=args.batch_size)
 
     dataloaders = {'train': train_loader, 'val': val_loader }
