@@ -155,7 +155,9 @@ def parse_command_line_arguments():
                         help='number of training epochs (default: 40)')
 
     parser.add_argument('--lr', type=float, default=1e-3,
-                        help='learning rate (Adam) (default: 1e-4)')
+                        help='learning rate (SGD) (default: 1e-4)')
+    parser.add_argument('--momentum', type=float, default=0.9,
+                        help='momentum (SGD) (default: 0.9)')
 
     parser.add_argument('--device', default='cpu', type=str,
                         help='device to be used for computations (in {cpu, cuda:0, cuda:1, ...}, default: cpu)')
@@ -205,7 +207,7 @@ if __name__ == '__main__':
 
     dataloaders = {'train': train_loader, 'val': val_loader }
 
-    optimizer = get_optimizer(model, feature_extract=args.feature_extract)
+    optimizer = get_optimizer(model, feature_extract=args.feature_extract, lr = args.lr, momentum= args.momentum)
 
     criterion = nn.CrossEntropyLoss()
     train_model(model, device, dataloaders, criterion, optimizer, run_args)

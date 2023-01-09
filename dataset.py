@@ -16,7 +16,7 @@ class Dataset(torchvision.datasets.VisionDataset):
         self.dataset_info = dataset_info
         self.rootdir = root
         print("Length of dataset is ", len(self.dataset_info))
-        self.images_labels = self.get_pil_imgs(self.dataset_info)
+        #self.images_labels = self.get_pil_imgs(self.dataset_info)
         
 
     def get_pil_imgs(self, df: pd.DataFrame):
@@ -37,12 +37,12 @@ class Dataset(torchvision.datasets.VisionDataset):
                 return img.convert('RGB')
 
     def __getitem__(self, index: int) -> Any:
-        # img_path = self.dataset_info.iloc[index]['sample']
-        # label = self.dataset_info.iloc[index]['label']
-        # img = Image.open(os.path.join(self.rootdir, img_path))
-        # return self.transforms(img), label
-        img, label = self.images_labels[index]
-        return img, label
+        img_path = self.dataset_info.iloc[index]['sample']
+        label = self.dataset_info.iloc[index]['label']
+        img = Image.open(os.path.join(self.rootdir, img_path))
+        return self.transforms(img), label
+        # img, label = self.images_labels[index]
+        # return img, label
 
     def __len__(self) -> int:
         return len(self.dataset_info)
