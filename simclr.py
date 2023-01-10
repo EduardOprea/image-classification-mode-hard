@@ -94,6 +94,7 @@ class SimCLR(object):
             if epoch_counter >= 10:
                 self.scheduler.step()
             if (epoch_counter + 1) % self.args.checkpoint_freq == 0:
+                print("Saving checkpoint at epoch ", epoch_counter)
                 checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(epoch_counter)
                 save_checkpoint({
                     'epoch': self.args.epochs,
