@@ -84,8 +84,7 @@ def main():
     args = parser.parse_args()
     print("CMD arguments \n", args)
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
-   
-    
+
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
         args.device = torch.device('cuda')
