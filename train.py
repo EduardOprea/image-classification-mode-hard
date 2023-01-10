@@ -33,12 +33,6 @@ def init_model(num_classes, model_name: str, feature_extract = False):
     
 def get_preprocess_transforms(model_name: str):
     if model_name == 'resnet50':
-        # preprocess = transforms.Compose([
-        #         transforms.RandomResizedCrop(input_size),
-        #         transforms.RandomHorizontalFlip(),
-        #         transforms.ToTensor(),
-        #         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        #     ])
         weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2 
         return weights.transforms()
 
