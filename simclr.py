@@ -64,8 +64,8 @@ class SimCLR(object):
         print("Logging results in ", self.writer.log_dir)
 
         for epoch_counter in range(self.args.epochs):
-            for images, _ in tqdm(train_loader):
-                #images = torch.cat(images, dim=0)
+            for images in tqdm(train_loader):
+                images = torch.cat(images, dim=0)
 
                 images = images.to(self.args.device)
 
