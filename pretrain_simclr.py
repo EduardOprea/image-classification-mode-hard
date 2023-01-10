@@ -17,9 +17,9 @@ model_names = sorted(name for name in models.__dict__
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
-parser.add_argument('-rootdir_labeled', metavar='DIR', default='E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\train_data\images\\labeled', help='path to labeled images')
-parser.add_argument('-rootdir_unlabeled', metavar='DIR', default='E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\train_data\images\\unlabeled', help='path to unlabeled images')
-parser.add_argument('-results_dir', metavar='DIR', default='results', help='results log')
+parser.add_argument('--rootdir_labeled', metavar='DIR', default='E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\train_data\images\\labeled', help='path to labeled images')
+parser.add_argument('--rootdir_unlabeled', default='E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\train_data\images\\unlabeled', help='path to unlabeled images')
+parser.add_argument('--results_dir',  default='results', help='results log')
 
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
