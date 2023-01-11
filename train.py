@@ -172,7 +172,7 @@ def parse_command_line_arguments():
                         help='The conv net is used just as a feature extractor')
 
 
-    parser.add_argument('--use_custom_checkpoint', type=bool, default= True,
+    parser.add_argument('--use_custom_checkpoint', type=bool, default= False,
                         help='The weights are loaded from a custom path ( this will only work for resnet50 )')
 
     parser.add_argument('--custom_ckpt_path', type=str, default= "results/checkpoints/checkpoint_0200.pth.tar",
