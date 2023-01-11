@@ -12,6 +12,7 @@ import torch.optim
 import time
 from tqdm import tqdm
 import pickle
+from models.resnet_simclr import ResNetSimCLR
 
 
 from run_metadata import RunMetadata
@@ -171,9 +172,28 @@ def parse_command_line_arguments():
                         help='The conv net is used just as a feature extractor')
 
 
+    parser.add_argument('--use_custom_checkpoint', type=bool, default= True,
+                        help='The weights are loaded from a custom path ( this will only work for resnet50 )')
+
+    parser.add_argument('--custom_ckpt_path', type=str, default= "results/checkpoints/checkpoint_0200.pth.tar",
+                        help='Path to the custom weights')
+
+
     parsed_arguments = parser.parse_args()
 
     return parsed_arguments
+
+def load_model_from_ckpt(num_classes, path, feature_extract):
+    model = torchvision.models.resnet50()
+    checkpoint_state = torch.load(path)
+    simclrModel = ResNetSimCLR("resnet50", num_classes, use_pretrained=False)
+    simclrModel.load_state_dict(checkpoint_state['state_dict'])
+    # strict = False because they will not match in the last layer which will be dropped anyway
+    model.load_state_dict(simclrModel.backbone.state_dict(), strict=False)
+    set_parameter_requires_grad(model, feature_extract)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs,num_classes)
+    return model
 
 if __name__ == '__main__':
     args = parse_command_line_arguments()
@@ -189,7 +209,10 @@ if __name__ == '__main__':
     run_args = RunMetadata(args.model_name, num_classes, args.epochs, args.freq_ckpt, args.results_dir)
 
     # feature_extract = False means we will update all the parameter, not only the last linear layer
-    model = init_model(num_classes, args.model_name, feature_extract = args.feature_extract)
+    if args.use_custom_checkpoint == True:
+       model = load_model_from_ckpt(num_classes, args.custom_ckpt_path, args.feature_extract) 
+    else:
+        model = init_model(num_classes, args.model_name, feature_extract = args.feature_extract)
     preprocess = get_preprocess_transforms(args.model_name)
     model = model.to(device)
 
