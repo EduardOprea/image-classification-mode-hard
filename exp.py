@@ -1,7 +1,7 @@
 import copy
 import pandas as pd
 from torchvision import transforms
-from dataset import Dataset
+from dataset import LabeledDataset
 import torchvision.models
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
@@ -161,7 +161,7 @@ preprocess = get_preprocess_transforms(model_name)
 model = model.to(device)
 
 
-dataset = Dataset(root_dir, df, preprocess)
+dataset = LabeledDataset(root_dir, df, preprocess)
 [train_set, val_set] = random_split(dataset, [0.8, 0.2])
 train_loader = DataLoader(train_set, shuffle = True, batch_size=batch_size)
 

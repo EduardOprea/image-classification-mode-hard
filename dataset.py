@@ -8,7 +8,7 @@ from tqdm import tqdm
 from os import listdir
 from os.path import isfile, join
 
-class Dataset(torchvision.datasets.VisionDataset):
+class LabeledDataset(torchvision.datasets.VisionDataset):
     def __init__(self, root: str, dataset_info: pd.DataFrame,
      transforms: Optional[Callable] = None,
       transform: Optional[Callable] = None,
