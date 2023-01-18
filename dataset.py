@@ -2,11 +2,14 @@ import os
 from typing import Any, Callable, List, Optional, Tuple
 import torchvision
 from PIL import Image
+import torch
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from os import listdir
 from os.path import isfile, join
+
+from utils import get_file_names
 
 class LabeledDataset(torchvision.datasets.VisionDataset):
     def __init__(self, root: str, dataset_info: pd.DataFrame,
@@ -49,7 +52,33 @@ class LabeledDataset(torchvision.datasets.VisionDataset):
     def __len__(self) -> int:
         return len(self.dataset_info)
 
+def get_img_key(img_name: str):
+    tokens = img_name.split(".jpeg")
+    return int(tokens[0])
+class UnlabeledDataset(torchvision.datasets.VisionDataset):
+    def __init__(self, rootdir: str,
+     transforms: Optional[Callable] = None,
+      transform: Optional[Callable] = None,
+       target_transform: Optional[Callable] = None) -> None:
+        super().__init__(rootdir, transforms, transform, target_transform)
+        self.transforms = transforms
+        self.rootdir = rootdir
+        self.images_names = get_file_names(rootdir)
+        self.images_names.sort(key = get_img_key)
+        print("Length of dataset is ", len(self.images_names))
+        #self.images_labels = self.get_pil_imgs(self.dataset_info)
+        
+    
+    def pil_loader(self, path):
+        with open(path, 'rb') as f:
+            with Image.open(f) as img:
+                return img.convert('RGB')
 
+    def __getitem__(self, index: int) -> Any:
+        img = self.pil_loader(os.path.join(self.rootdir, self.images_names[index]))
+        return self.transforms(img), self.images_names[index]
+    def __len__(self) -> int:
+        return len(self.images_names)
 class ContrastiveDataset(torchvision.datasets.VisionDataset):
     def __init__(self, images: List[str],
      transforms: Optional[Callable] = None,

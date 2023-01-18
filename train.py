@@ -1,5 +1,6 @@
 import argparse
 import copy
+import os
 import pandas as pd
 from torchvision import transforms
 from dataset import LabeledDataset
@@ -194,12 +195,16 @@ def load_model_from_ckpt(num_classes, path, feature_extract):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs,num_classes)
     return model
-
+def ensure_dir_exists(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 if __name__ == '__main__':
     args = parse_command_line_arguments()
 
     for k, v in args.__dict__.items():
         print(k + '=' + str(v))
+        
+    ensure_dir_exists(os.path.join(args.results_dir,'checkpoints'))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
     print("Training on ", device)
