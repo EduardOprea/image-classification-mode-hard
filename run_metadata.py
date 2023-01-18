@@ -4,7 +4,7 @@ class RunMetadata:
     freq_ckpt: int, results_dir : str, lr : float , momentum : float, optimizer: str,
     use_label_smoothing: bool, smooth_rate: float) -> None:
         self.model = model
-        self.input_size = self.model_input_size_dict[model]
+        #self.input_size = self.model_input_size_dict[model]
         self.output_size = output_size
         self.num_epochs = num_epochs
         self.freq_ckpt = freq_ckpt

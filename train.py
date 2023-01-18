@@ -35,10 +35,21 @@ def init_model(num_classes, model_name: str, feature_extract = False):
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs,num_classes)
         return model
+    elif model_name == 'resnet152':
+        weights = torchvision.models.ResNet152_Weights.IMAGENET1K_V2
+        model = torchvision.models.resnet152(weights)
+        set_parameter_requires_grad(model, feature_extract)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs,num_classes)
+        return model
+
     
 def get_preprocess_transforms(model_name: str):
     if model_name == 'resnet50':
         weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2 
+        return weights.transforms()
+    if model_name == 'resnet152':
+        weights = torchvision.models.ResNet152_Weights.IMAGENET1K_V2 
         return weights.transforms()
 
 def loss_gls(logits, labels, smooth_rate=0.1):
@@ -212,6 +223,13 @@ def parse_command_line_arguments():
 
     parser.add_argument('--custom_ckpt_path', type=str, default= "results/checkpoints/checkpoint_0200.pth.tar",
                         help='Path to the custom weights')
+    
+    parser.add_argument('--train_split_percentage', type=float, default= 0.9,
+                        help="Percentage of images to be used for train split")
+    
+    
+    parser.add_argument('--val_split_percentage', type=float, default= 0.1,
+                        help="Percentage of images to be used for val split")
 
 
     parsed_arguments = parser.parse_args()
@@ -271,7 +289,7 @@ if __name__ == '__main__':
 
 
     dataset = LabeledDataset(args.rootdir, df, preprocess)
-    [train_set, val_set] = random_split(dataset, [0.8, 0.2])
+    [train_set, val_set] = random_split(dataset, [args.train_split_percentage, args.val_split_percentage])
     train_loader = DataLoader(train_set, shuffle = True, batch_size=args.batch_size)
     val_loader = DataLoader(val_set, shuffle = True, batch_size=args.batch_size)
 
