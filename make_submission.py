@@ -11,12 +11,12 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser(
         description='CLI for training an image classifier')
 
-    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/finetune_resnet_simclr_pretrained.pth",
+    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/noisy_labels_finetune_resnet.pth",
                         help="Path to model weights")
     parser.add_argument('--batch_size', type=int, default=16,
                 help="Batch size")
 
-    parser.add_argument('--rootdir', type=str, default="E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\val_data",
+    parser.add_argument('--rootdir', type=str, default="E:\Fisierele mele\Facultate\AAIT\HW2\\task2\\val_data",
                         help="Path to the images folder")
 
     parser.add_argument('--output_file', type=str, default="submission.csv",
