@@ -66,7 +66,10 @@ def get_preprocess_transforms(model_name: str):
         weights = torchvision.models.ResNet152_Weights.IMAGENET1K_V2 
         return weights.transforms()
     if model_name == 'densenet161':
-        weights = torchvision.models.densenet161.IMAGENET1K_V2 
+        weights = torchvision.models.DenseNet161_Weights.IMAGENET1K_V1 
+        return weights.transforms()
+    if model_name == 'vgg19':
+        weights = torchvision.models.VGG19_BN_Weights.IMAGENET1K_V1
         return weights.transforms()
 
 def loss_gls(logits, labels, smooth_rate=0.1):
