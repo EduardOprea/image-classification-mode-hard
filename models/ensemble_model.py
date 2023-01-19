@@ -22,3 +22,7 @@ class EnsembleModel(nn.Module):
 
         for param in self.classifier.parameters():
             param.requires_grad = True 
+
+    def freeze_classifier_params(self):
+        for param in self.classifier.parameters():
+            param.requires_grad = False         

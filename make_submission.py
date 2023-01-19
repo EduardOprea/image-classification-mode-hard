@@ -4,7 +4,11 @@ import torch
 from torch.utils.data import DataLoader
 from dataset import UnlabeledDataset
 from tqdm import tqdm
+from torch import nn
 import pandas as pd
+
+from model_loading import load_ensemble_model
+from models.ensemble_model import EnsembleModel
 
 def parse_command_line_arguments():
 
@@ -28,7 +32,7 @@ def parse_command_line_arguments():
     parsed_arguments = parser.parse_args()
     return parsed_arguments
 
-def load_resnet50_model_from_ckpt(model, path, num_classes):
+def load_model_from_ckpt(model, path, num_classes):
     if model == 'resnet50':
         model = torchvision.models.resnet50()
         num_ftrs = model.fc.in_features
@@ -41,6 +45,23 @@ def load_resnet50_model_from_ckpt(model, path, num_classes):
         model.fc = torch.nn.Linear(num_ftrs, num_classes)
         model.load_state_dict(torch.load(path))
         return model
+    elif model == 'ensemble':
+        resnet_model = torchvision.models.resnet152()
+        num_ftrs = resnet_model.fc.in_features
+        resnet_model.fc = nn.Linear(num_ftrs,num_classes)
+        
+        densenet_model = torchvision.models.densenet161()
+        num_ftrs = densenet_model.classifier.in_features
+        densenet_model.classifier = nn.Linear(num_ftrs, num_classes)
+
+        vgg_model = torchvision.models.vgg19_bn()
+        num_ftrs = vgg_model.classifier[6].in_features
+        vgg_model.classifier[6] = nn.Linear(num_ftrs,num_classes)   
+        model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
+
+        model.freeze_ensemble_models_params()
+        model.freeze_classifier_params
+        return model
 
 def init_resnet50_model(num_classes):
     weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2
@@ -51,12 +72,12 @@ def init_resnet50_model(num_classes):
 if __name__ == '__main__':
     args = parse_command_line_arguments()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2 
+    weights = torchvision.models.ResNet152_Weights.IMAGENET1K_V2 
     dataset = UnlabeledDataset(args.rootdir, weights.transforms())
     dataloader = DataLoader(dataset, args.batch_size)
     
     #model = init_resnet50_model(100)
-    model = load_resnet50_model_from_ckpt(args.model_name, args.checkpoint_path, num_classes=100)
+    model = load_model_from_ckpt(args.model_name, args.checkpoint_path, num_classes=100)
     model.to(device)
     model.eval()
     images = []
