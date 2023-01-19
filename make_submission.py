@@ -11,12 +11,14 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser(
         description='CLI for training an image classifier')
 
-    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/noisy_labels_finetune_resnet.pth",
+    parser.add_argument('--model_name', type=str, default="resnet152",
+                        help="The arch to use")
+    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/t1_resnet152.pth",
                         help="Path to model weights")
     parser.add_argument('--batch_size', type=int, default=16,
                 help="Batch size")
 
-    parser.add_argument('--rootdir', type=str, default="E:\Fisierele mele\Facultate\AAIT\HW2\\task2\\val_data",
+    parser.add_argument('--rootdir', type=str, default="E:\Fisierele mele\Facultate\AAIT\HW2\\task1\\val_data",
                         help="Path to the images folder")
 
     parser.add_argument('--output_file', type=str, default="submission.csv",
@@ -26,12 +28,19 @@ def parse_command_line_arguments():
     parsed_arguments = parser.parse_args()
     return parsed_arguments
 
-def load_resnet50_model_from_ckpt(path, num_classes):
-    model = torchvision.models.resnet50()
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model.load_state_dict(torch.load(path))
-    return model
+def load_resnet50_model_from_ckpt(model, path, num_classes):
+    if model == 'resnet50':
+        model = torchvision.models.resnet50()
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(num_ftrs, num_classes)
+        model.load_state_dict(torch.load(path))
+        return model
+    elif model == 'resnet152':
+        model = torchvision.models.resnet152()
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(num_ftrs, num_classes)
+        model.load_state_dict(torch.load(path))
+        return model
 
 def init_resnet50_model(num_classes):
     weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2
@@ -47,7 +56,7 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, args.batch_size)
     
     #model = init_resnet50_model(100)
-    model = load_resnet50_model_from_ckpt(args.checkpoint_path, num_classes=100)
+    model = load_resnet50_model_from_ckpt(args.model_name, args.checkpoint_path, num_classes=100)
     model.to(device)
     model.eval()
     images = []

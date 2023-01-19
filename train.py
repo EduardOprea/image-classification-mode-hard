@@ -14,6 +14,7 @@ import torch.optim
 import time
 from tqdm import tqdm
 import pickle
+from models.ensemble_model import EnsembleModel
 from models.resnet_simclr import ResNetSimCLR
 import json
 import torch.nn.functional as F
@@ -42,14 +43,30 @@ def init_model(num_classes, model_name: str, feature_extract = False):
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs,num_classes)
         return model
-
-    
+    elif model_name == 'densenet161':
+        weights = torchvision.models.DenseNet161_Weights.IMAGENET1K_V1
+        model = torchvision.models.densenet161(weights)
+        set_parameter_requires_grad(model, feature_extract)
+        num_ftrs = model.classifier.in_features
+        model.classifier = nn.Linear(num_ftrs, num_classes)
+        return model
+    elif model_name == 'vgg19':
+        weights = torchvision.models.VGG19_BN_Weights.IMAGENET1K_V1
+        model = torchvision.models.vgg19_bn(weights)
+        set_parameter_requires_grad(model, feature_extract)
+        num_ftrs = model.classifier[6].in_features
+        model.classifier[6] = nn.Linear(num_ftrs,num_classes)   
+        return model
+     
 def get_preprocess_transforms(model_name: str):
     if model_name == 'resnet50':
         weights = torchvision.models.ResNet50_Weights.IMAGENET1K_V2 
         return weights.transforms()
     if model_name == 'resnet152':
         weights = torchvision.models.ResNet152_Weights.IMAGENET1K_V2 
+        return weights.transforms()
+    if model_name == 'densenet161':
+        weights = torchvision.models.densenet161.IMAGENET1K_V2 
         return weights.transforms()
 
 def loss_gls(logits, labels, smooth_rate=0.1):
@@ -174,13 +191,29 @@ def get_optimizer(model, feature_extract, lr = 0.001, momentum = 0.9):
     optimizer = torch.optim.SGD(params_to_update, lr=lr, momentum=momentum)
     return optimizer 
 
+def get_ensemble_transforms(input_size = 224):
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.RandomResizedCrop(input_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]),
+        'val': transforms.Compose([
+            transforms.Resize(input_size),
+            transforms.CenterCrop(input_size),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])}
+    # use the same transforms for train and validation because the way the dataset is setup
+    return data_transforms['train']
 
 def parse_command_line_arguments():
 
     parser = argparse.ArgumentParser(
         description='CLI for training an image classifier')
 
-    parser.add_argument('--model_name', type=str, default="resnet50",
+    parser.add_argument('--model_name', type=str, default="densenet161",
                         help="Name of convnet model")
 
     parser.add_argument('--batch_size', type=int, default=16,
@@ -214,6 +247,12 @@ def parse_command_line_arguments():
     parser.add_argument('--use_label_smoothing', action='store_true',
                         help='If the loss is calculated with smoothed labels')
     
+    parser.add_argument('--use_ensemble', action='store_true',
+                        help='If this is true, it will use an asemble of models : resnet152, vgg19 and densenet161')
+    
+    parser.add_argument('--freeze_ensemble_models', action='store_true',
+                        help='If set, it will freeze the parameters of the ensemble models, and train only the last ensembling linear layer')
+    
     parser.add_argument('--smooth_rate', type=float, default=0.2,
                         help='The smooth rate of label smoothing')
 
@@ -241,7 +280,8 @@ def get_run_metadata_obj(args) -> RunMetadata:
          num_epochs= args.epochs, batch_size = args.batch_size,
          freq_ckpt= args.freq_ckpt, results_dir= args.results_dir,
          lr = args.lr, momentum= args.momentum, optimizer='adam', 
-         use_label_smoothing=args.use_label_smoothing, smooth_rate=args.smooth_rate)
+         use_label_smoothing=args.use_label_smoothing, smooth_rate=args.smooth_rate, use_ensemble=args.use_ensemble,
+         freeze_ensemble_models = args.freeze_ensemble_models)
     return run_args
 
 def load_model_from_ckpt(num_classes, path, feature_extract):
@@ -255,6 +295,15 @@ def load_model_from_ckpt(num_classes, path, feature_extract):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs,num_classes)
     return model
+def load_ensemble_model(num_classes, feature_extract, freeze_ensemble_models = False):
+    resnet_model = init_model(num_classes, "resnet152", feature_extract)
+    densenet_model = init_model(num_classes, "densenet161", feature_extract)
+    vgg_model = init_model(num_classes, "vgg19", feature_extract)
+    model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
+    if freeze_ensemble_models == True:
+        model.freeze_ensemble_models_params()
+    return model
+
 def ensure_dir_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -281,10 +330,17 @@ if __name__ == '__main__':
     
     # feature_extract = False means we will update all the parameter, not only the last linear layer
     if args.use_custom_checkpoint == True:
-       model = load_model_from_ckpt(num_classes, args.custom_ckpt_path, args.feature_extract) 
+       model = load_model_from_ckpt(num_classes, args.custom_ckpt_path, args.feature_extract)
+       preprocess = get_preprocess_transforms(args.model_name)
+    elif args.use_ensemble == True:
+        model = load_ensemble_model(num_classes, args.feature_extract, args.freeze_ensemble_models)
+        preprocess = get_ensemble_transforms(input_size = 224)
     else:
         model = init_model(num_classes, args.model_name, feature_extract = args.feature_extract)
-    preprocess = get_preprocess_transforms(args.model_name)
+        preprocess = get_preprocess_transforms(args.model_name)
+    
+    
+    
     model = model.to(device)
 
 
