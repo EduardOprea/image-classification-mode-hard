@@ -307,7 +307,7 @@ def load_model_from_ckpt(num_classes, path, feature_extract):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs,num_classes)
     return model
-def load_ensemble_model(num_classes):
+def load_ensemble_model(num_classes, args):
     if args.use_checkpoints_ensemble == False:
         resnet_model = init_model(num_classes, "resnet152", args.feature_extract)
         densenet_model = init_model(num_classes, "densenet161", args.feature_extract)
@@ -318,6 +318,7 @@ def load_ensemble_model(num_classes):
             model.freeze_ensemble_models_params()
         return model
     else:
+        print("loading checkpoint weights for ensemble model")
         resnet_model = init_model(num_classes, "resnet152", args.feature_extract)
         resnet_model.load_state_dict(args.resnet_ckpt)
         densenet_model = init_model(num_classes, "densenet161", args.feature_extract)
