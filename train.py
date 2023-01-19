@@ -123,10 +123,7 @@ def train_model(model, device, dataloaders, criterion, optimizer, run_args: RunM
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
-                    if run_args.use_label_smoothing == True:
-                        loss = loss_gls(outputs, labels, run_args.smooth_rate)
-                    else:
-                        loss = criterion(outputs, labels)
+                    loss = criterion(outputs, labels)
 
                     _, preds = torch.max(outputs, 1)
 
@@ -265,7 +262,7 @@ def parse_command_line_arguments():
                         help='Path to ensemble vgg checkpoint')
     
     
-    parser.add_argument('--smooth_rate', type=float, default=0.2,
+    parser.add_argument('--smooth_rate', type=float, default=0.0,
                         help='The smooth rate of label smoothing')
 
 
@@ -380,5 +377,5 @@ if __name__ == '__main__':
 
     optimizer = get_optimizer(model, feature_extract=args.feature_extract, lr = args.lr, momentum= args.momentum)
 
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=args.smooth_rate)
     train_model(model, device, dataloaders, criterion, optimizer, run_args)
