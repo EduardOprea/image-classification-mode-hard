@@ -320,11 +320,11 @@ def load_ensemble_model(num_classes, args):
     else:
         print("loading checkpoint weights for ensemble model")
         resnet_model = init_model(num_classes, "resnet152", args.feature_extract)
-        resnet_model.load_state_dict(args.resnet_ckpt)
+        resnet_model.load_state_dict(torch.load(args.resnet_ckpt))
         densenet_model = init_model(num_classes, "densenet161", args.feature_extract)
-        densenet_model.load_state_dict(args.densenet_ckpt)
+        densenet_model.load_state_dict(torch.load(args.densenet_ckpt))
         vgg_model = init_model(num_classes, "vgg19", args.feature_extract)
-        vgg_model.load_state_dict(args.vgg_ckpt)
+        vgg_model.load_state_dict(torch.load(args.vgg_ckpt))
         model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
         if args.freeze_ensemble_models == True:
             print("Freezing parameters of ensemble models")
