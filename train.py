@@ -255,6 +255,15 @@ def parse_command_line_arguments():
     
     parser.add_argument('--freeze_ensemble_models', action='store_true',
                         help='If set, it will freeze the parameters of the ensemble models, and train only the last ensembling linear layer')
+    parser.add_argument('--use_checkpoints_ensemble', action='store_true',
+                        help='If set, it will use checkpoint weights for the ensemble model')
+    parser.add_argument('--resnet_ckpt', type=str,
+                        help='Path to ensemble resnet checkpoint')
+    parser.add_argument('--densenet_ckpt', type=str,
+                        help='Path to ensemble densenet checkpoint')
+    parser.add_argument('--vgg_ckpt', type=str,
+                        help='Path to ensemble vgg checkpoint')
+    
     
     parser.add_argument('--smooth_rate', type=float, default=0.2,
                         help='The smooth rate of label smoothing')
@@ -298,14 +307,28 @@ def load_model_from_ckpt(num_classes, path, feature_extract):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs,num_classes)
     return model
-def load_ensemble_model(num_classes, feature_extract, freeze_ensemble_models = False):
-    resnet_model = init_model(num_classes, "resnet152", feature_extract)
-    densenet_model = init_model(num_classes, "densenet161", feature_extract)
-    vgg_model = init_model(num_classes, "vgg19", feature_extract)
-    model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
-    if freeze_ensemble_models == True:
-        model.freeze_ensemble_models_params()
-    return model
+def load_ensemble_model(num_classes):
+    if args.use_checkpoints_ensemble == False:
+        resnet_model = init_model(num_classes, "resnet152", args.feature_extract)
+        densenet_model = init_model(num_classes, "densenet161", args.feature_extract)
+        vgg_model = init_model(num_classes, "vgg19", args.feature_extract)
+        model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
+        if args.freeze_ensemble_models == True:
+            print("Freezing parameters of ensemble models")
+            model.freeze_ensemble_models_params()
+        return model
+    else:
+        resnet_model = init_model(num_classes, "resnet152", args.feature_extract)
+        resnet_model.load_state_dict(args.resnet_ckpt)
+        densenet_model = init_model(num_classes, "densenet161", args.feature_extract)
+        densenet_model.load_state_dict(args.densenet_ckpt)
+        vgg_model = init_model(num_classes, "vgg19", args.feature_extract)
+        vgg_model.load_state_dict(args.vgg_ckpt)
+        model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
+        if args.freeze_ensemble_models == True:
+            print("Freezing parameters of ensemble models")
+            model.freeze_ensemble_models_params()
+        return model
 
 def ensure_dir_exists(path):
     if not os.path.exists(path):
@@ -336,7 +359,7 @@ if __name__ == '__main__':
        model = load_model_from_ckpt(num_classes, args.custom_ckpt_path, args.feature_extract)
        preprocess = get_preprocess_transforms(args.model_name)
     elif args.use_ensemble == True:
-        model = load_ensemble_model(num_classes, args.feature_extract, args.freeze_ensemble_models)
+        model = load_ensemble_model(num_classes, args)
         preprocess = get_ensemble_transforms(input_size = 224)
     else:
         model = init_model(num_classes, args.model_name, feature_extract = args.feature_extract)
