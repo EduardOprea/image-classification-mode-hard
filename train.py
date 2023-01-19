@@ -358,7 +358,8 @@ if __name__ == '__main__':
        preprocess = get_preprocess_transforms(args.model_name)
     elif args.use_ensemble == True:
         model = load_ensemble_model(num_classes, args)
-        preprocess = get_ensemble_transforms(input_size = 224)
+        #preprocess = get_ensemble_transforms(input_size = 224)
+        preprocess = get_preprocess_transforms('resnet152')
     else:
         model = init_model(num_classes, args.model_name, feature_extract = args.feature_extract)
         preprocess = get_preprocess_transforms(args.model_name)
