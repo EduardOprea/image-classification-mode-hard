@@ -432,7 +432,7 @@ def train_noise_correction(trainloader, valloader, optimizer, y_file, run_args: 
     print("y file ", y_file)
     best_prec1 = 0.0
     for epoch in range(run_args.num_epochs):
-        #adjust_learning_rate(optimizer, epoch, run_args)
+        adjust_learning_rate(optimizer, epoch, run_args)
         
         if os.path.isfile(y_file):
             print("Loading y from file")
