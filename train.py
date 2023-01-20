@@ -23,7 +23,7 @@ from sklearn.model_selection import train_test_split
 
 
 from run_metadata import RunMetadata
-from train_noise_correction import AverageMeter, accuracy
+from utils import AverageMeter
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -243,9 +243,9 @@ def parse_command_line_arguments():
                         metavar='H-P', help='the value of lambda')
 
 
-    parser.add_argument('--stage1', default=3, type=int,
+    parser.add_argument('--stage1', default=2, type=int,
                         metavar='H-P', help='number of epochs utill stage1')
-    parser.add_argument('--stage2', default=6, type=int,
+    parser.add_argument('--stage2', default=5, type=int,
                         metavar='H-P', help='number of epochs utill stage2')
 
     parser.add_argument('--device', default='cpu', type=str,
@@ -311,6 +311,22 @@ def parse_command_line_arguments():
     parsed_arguments = parser.parse_args()
 
     return parsed_arguments
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _ , pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
+
 
 def get_run_metadata_obj(args) -> RunMetadata:
     run_args = RunMetadata(model = args.model_name,output_size= num_classes,
