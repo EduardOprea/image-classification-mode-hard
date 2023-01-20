@@ -225,7 +225,7 @@ def parse_command_line_arguments():
     parser.add_argument('--epochs', type=int, default=40,
                         help='number of training epochs (default: 40)')
 
-    parser.add_argument('--lr', type=float, default=0.06,
+    parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate (SGD) (default: 1e-4)')
     parser.add_argument('--lr2', type=float, default=0.2,
                         help='learning rate (SGD) (default: 1e-4)')
@@ -394,8 +394,9 @@ def validate(val_loader, model, criterion):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
+    for i, (input, target, index) in enumerate(val_loader):
         target = target.to(device)
+        input = input.to(device)
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
@@ -430,9 +431,10 @@ def validate(val_loader, model, criterion):
 def train_noise_correction(trainloader, valloader, optimizer, y_file, run_args: RunMetadata):
     best_prec1 = 0.0
     for epoch in range(run_args.num_epochs):
-        adjust_learning_rate(optimizer, epoch, run_args)
+        #adjust_learning_rate(optimizer, epoch, run_args)
         
         if os.path.isfile(y_file):
+            print("Loading y from file")
             y = np.load(y_file)
         else:
             y = []
@@ -545,6 +547,7 @@ def update_weights_noise_correction(train_loader, model, criterion, optimizer, e
         # save y_tilde
         y = new_y
         y_file = run_args.results_dir + "y.npy"
+        print("Saving y to ", y_file)
         np.save(y_file,y)
         y_record = run_args.results_dir + "y_%03d.npy" % epoch
         np.save(y_record,y)
