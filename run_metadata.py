@@ -17,3 +17,9 @@ class RunMetadata:
         self.smooth_rate = smooth_rate
         self.use_ensemble = use_ensemble
         self.freeze_ensemble_models = freeze_ensemble_models
+        self.stage1 = 5
+        self.stage2 = 10
+        self.alpha = 0.4
+        self.beta = 0.1
+        self.lambda1 = 600
+        self.lr2 = 0.2 

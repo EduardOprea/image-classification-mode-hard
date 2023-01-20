@@ -17,10 +17,13 @@ import pickle
 from models.ensemble_model import EnsembleModel
 from models.resnet_simclr import ResNetSimCLR
 import json
+import numpy as np
 import torch.nn.functional as F
+from sklearn.model_selection import train_test_split
 
 
 from run_metadata import RunMetadata
+from train_noise_correction import AverageMeter, accuracy
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -222,10 +225,28 @@ def parse_command_line_arguments():
     parser.add_argument('--epochs', type=int, default=40,
                         help='number of training epochs (default: 40)')
 
-    parser.add_argument('--lr', type=float, default=1e-3,
+    parser.add_argument('--lr', type=float, default=0.06,
+                        help='learning rate (SGD) (default: 1e-4)')
+    parser.add_argument('--lr2', type=float, default=0.2,
                         help='learning rate (SGD) (default: 1e-4)')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='momentum (SGD) (default: 0.9)')
+    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+                    metavar='W', help='weight decay (default: 1e-4)')
+    
+
+    parser.add_argument('--alpha', default=0.4, type=float,
+                    metavar='H-P', help='the coefficient of Compatibility Loss')
+    parser.add_argument('--beta', default=0.1, type=float,
+                        metavar='H-P', help='the coefficient of Entropy Loss')
+    parser.add_argument('--lambda1', default=600, type=int,
+                        metavar='H-P', help='the value of lambda')
+
+
+    parser.add_argument('--stage1', default=3, type=int,
+                        metavar='H-P', help='number of epochs utill stage1')
+    parser.add_argument('--stage2', default=6, type=int,
+                        metavar='H-P', help='number of epochs utill stage2')
 
     parser.add_argument('--device', default='cpu', type=str,
                         help='device to be used for computations (in {cpu, cuda:0, cuda:1, ...}, default: cpu)')
@@ -247,6 +268,13 @@ def parse_command_line_arguments():
     parser.add_argument('--use_label_smoothing', action='store_true',
                         help='If the loss is calculated with smoothed labels')
     
+
+
+    parser.add_argument('--use_noise_correction', action='store_true',
+                        help='If this is true, It will apply noise correction')
+    
+
+
     parser.add_argument('--use_ensemble', action='store_true',
                         help='If this is true, it will use an asemble of models : resnet152, vgg19 and densenet161')
     
@@ -291,6 +319,12 @@ def get_run_metadata_obj(args) -> RunMetadata:
          lr = args.lr, momentum= args.momentum, optimizer='adam', 
          use_label_smoothing=args.use_label_smoothing, smooth_rate=args.smooth_rate, use_ensemble=args.use_ensemble,
          freeze_ensemble_models = args.freeze_ensemble_models)
+    run_args.lr2 = args.lr2
+    run_args.alpha = args.alpha
+    run_args.beta = args.beta
+    run_args.stage1 = args.stage1
+    run_args.stage2 = args.stage2
+    run_args.lambda1 = args.lambda1
     return run_args
 
 def load_model_from_ckpt(num_classes, path, feature_extract):
@@ -335,7 +369,186 @@ def save_run_metadata(run_args, path):
     with open(path,"w") as f:
         json.dump(run_args, f, default=lambda o: o.__dict__, 
             sort_keys=True, indent=4)
+
+
+def adjust_learning_rate(optimizer, epoch, run_args: RunMetadata):
+    """Sets the learning rate"""
+    if epoch < run_args.stage2 :
+        lr = run_args.lr
+    elif epoch < (run_args.epochs - run_args.stage2)//3 + run_args.stage2:
+        lr = run_args.lr2
+    elif epoch < 2 * (run_args.epochs - run_args.stage2)//3 + run_args.stage2:
+        lr = run_args.lr2//10
+    else:
+        lr = run_args.lr2//100
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+def validate(val_loader, model, criterion):
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # switch to evaluate mode
+    model.eval()
+
+    end = time.time()
+    for i, (input, target) in enumerate(val_loader):
+        target = target.to(device)
+        input_var = torch.autograd.Variable(input)
+        target_var = torch.autograd.Variable(target)
+
+        # compute output
+        output = model(input_var)
+        loss = criterion(output, target_var)
+
+        # measure accuracy and record loss
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        losses.update(loss.item(), input.size(0))
+        top1.update(prec1[0], input.size(0))
+        top5.update(prec5[0], input.size(0))
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % args.print_freq == 0:
+            print('Test: [{0}/{1}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                   i, len(val_loader), batch_time=batch_time, loss=losses,
+                   top1=top1, top5=top5))
+
+    print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
+          .format(top1=top1, top5=top5))
+
+    return top1.avg
+     
+def train_noise_correction(trainloader, valloader, optimizer, y_file, run_args: RunMetadata):
+    best_prec1 = 0.0
+    for epoch in range(run_args.num_epochs):
+        adjust_learning_rate(optimizer, epoch, run_args)
         
+        if os.path.isfile(y_file):
+            y = np.load(y_file)
+        else:
+            y = []
+
+        update_weights_noise_correction(trainloader, model, criterion, optimizer, epoch, y, run_args)
+        # evaluate on validation set
+        prec1 = validate(valloader, model, criterion)
+        print("Precision is", prec1)
+        # remember best prec@1 and save checkpoint
+        is_best = prec1 > best_prec1
+        best_prec1 = max(prec1, best_prec1)
+
+        if is_best == True:
+           torch.save(model.state_dict(), f'{run_args.results_dir}/checkpoints/bestacc.pth')
+
+
+def update_weights_noise_correction(train_loader, model, criterion, optimizer, epoch, y, run_args: RunMetadata):
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # switch to train mode
+    model.train()
+
+    end = time.time()
+
+    # new y is y_tilde after updating
+    new_y = np.zeros([len(train_loader.dataset),run_args.output_size])
+
+    for i, (input, target, index) in enumerate(train_loader):
+        # measure data loading time
+
+        data_time.update(time.time() - end)
+
+        index = index.numpy()
+
+        target1 = target.to(device)
+        input = input.to(device)
+
+        input_var = torch.autograd.Variable(input)
+        target_var = torch.autograd.Variable(target1)
+
+        # compute output
+        output = model(input_var)
+
+        logsoftmax = nn.LogSoftmax(dim=1).cuda()
+        softmax = nn.Softmax(dim=1).cuda()
+        if epoch < run_args.stage1:
+            # lc is classification loss
+            lc = criterion(output, target_var)
+            # init y_tilde, let softmax(y_tilde) is noisy labels
+            onehot = torch.zeros(target.size(0), run_args.output_size).scatter_(1, target.view(-1, 1), 10.0)
+            onehot = onehot.numpy()
+            new_y[index, :] = onehot
+        else:
+            yy = y
+            yy = yy[index,:]
+            yy = torch.FloatTensor(yy)
+            yy = yy.to(device)
+            yy = torch.autograd.Variable(yy,requires_grad = True)
+            # obtain label distributions (y_hat)
+            last_y_var = softmax(yy)
+            lc = torch.mean(softmax(output)*(logsoftmax(output)-torch.log((last_y_var))))
+            # lo is compatibility loss
+            lo = criterion(last_y_var, target_var)
+        # le is entropy loss
+        le = - torch.mean(torch.mul(softmax(output), logsoftmax(output)))
+
+        if epoch < run_args.stage1:
+            loss = lc
+        elif epoch < run_args.stage2:
+            loss = lc + run_args.alpha * lo + run_args.beta * le
+        else:
+            loss = lc
+
+        # measure accuracy and record loss
+        prec1, prec5 = accuracy(output.data, target1, topk=(1, 5))
+        losses.update(loss.item(), input.size(0))
+        top1.update(prec1[0], input.size(0))
+        top5.update(prec5[0], input.size(0))
+
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        if epoch >= run_args.stage1 and epoch < run_args.stage2:
+            lambda1 = run_args.lambda1
+            # update y_tilde by back-propagation
+            yy.data.sub_(lambda1*yy.grad.data)
+
+            new_y[index,:] = yy.data.cpu().numpy()
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % 50 == 0:
+            print('Epoch: [{0}][{1}/{2}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                   epoch, i, len(train_loader), batch_time=batch_time,
+                   data_time=data_time, loss=losses, top1=top1, top5=top5))
+    if epoch < run_args.stage2:
+        # save y_tilde
+        y = new_y
+        y_file = run_args.results_dir + "y.npy"
+        np.save(y_file,y)
+        y_record = run_args.results_dir + "y_%03d.npy" % epoch
+        np.save(y_record,y)
+
 if __name__ == '__main__':
     args = parse_command_line_arguments()
 
@@ -369,8 +582,15 @@ if __name__ == '__main__':
     model = model.to(device)
 
 
-    dataset = LabeledDataset(args.rootdir, df, preprocess)
-    [train_set, val_set] = random_split(dataset, [args.train_split_percentage, args.val_split_percentage])
+    # dataset = LabeledDataset(args.rootdir, df, preprocess)
+    # [train_set, val_set] = random_split(dataset, [args.train_split_percentage, args.val_split_percentage])
+
+    train_df, val_df = train_test_split(df, test_size = args.val_split_percentage)
+    
+
+    train_set = LabeledDataset(args.rootdir, train_df, preprocess)
+    val_set = LabeledDataset(args.rootdir, val_df, preprocess)
+
     train_loader = DataLoader(train_set, shuffle = True, batch_size=args.batch_size)
     val_loader = DataLoader(val_set, shuffle = True, batch_size=args.batch_size)
 
@@ -379,4 +599,12 @@ if __name__ == '__main__':
     optimizer = get_optimizer(model, feature_extract=args.feature_extract, lr = args.lr, momentum= args.momentum)
 
     criterion = nn.CrossEntropyLoss(label_smoothing=args.smooth_rate)
-    train_model(model, device, dataloaders, criterion, optimizer, run_args)
+
+    if args.use_noise_correction:
+        optimizer = torch.optim.SGD(model.parameters(), run_args.lr,
+                                    momentum=run_args.momentum,
+                                    weight_decay=args.weight_decay)
+        train_noise_correction(train_loader, val_loader, optimizer, run_args.results_dir + "y.npy", run_args)
+    else:
+        
+        train_model(model, device, dataloaders, criterion, optimizer, run_args)

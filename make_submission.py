@@ -6,8 +6,6 @@ from dataset import UnlabeledDataset
 from tqdm import tqdm
 from torch import nn
 import pandas as pd
-
-from model_loading import load_ensemble_model
 from models.ensemble_model import EnsembleModel
 
 def parse_command_line_arguments():
@@ -15,9 +13,9 @@ def parse_command_line_arguments():
     parser = argparse.ArgumentParser(
         description='CLI for training an image classifier')
 
-    parser.add_argument('--model_name', type=str, default="resnet152",
+    parser.add_argument('--model_name', type=str, default="ensemble",
                         help="The arch to use")
-    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/t1_resnet152.pth",
+    parser.add_argument('--checkpoint_path', type=str, default="results/checkpoints/t1_ensemble_pretrained_models_smooth_label_v2.pth",
                         help="Path to model weights")
     parser.add_argument('--batch_size', type=int, default=16,
                 help="Batch size")
@@ -46,6 +44,7 @@ def load_model_from_ckpt(model, path, num_classes):
         model.load_state_dict(torch.load(path))
         return model
     elif model == 'ensemble':
+        print("Loading ensemble model")
         resnet_model = torchvision.models.resnet152()
         num_ftrs = resnet_model.fc.in_features
         resnet_model.fc = nn.Linear(num_ftrs,num_classes)
@@ -58,7 +57,7 @@ def load_model_from_ckpt(model, path, num_classes):
         num_ftrs = vgg_model.classifier[6].in_features
         vgg_model.classifier[6] = nn.Linear(num_ftrs,num_classes)   
         model = EnsembleModel(resnet_model, densenet_model, vgg_model, num_classes)
-
+        model.load_state_dict(torch.load(path))
         model.freeze_ensemble_models_params()
         model.freeze_classifier_params
         return model
@@ -80,8 +79,12 @@ if __name__ == '__main__':
     model = load_model_from_ckpt(args.model_name, args.checkpoint_path, num_classes=100)
     model.to(device)
     model.eval()
+    
     images = []
     predictions = []
+    
+    
+    
     with torch.no_grad():
         for inputs, images_names in tqdm(dataloader):
                 inputs = inputs.to(device)

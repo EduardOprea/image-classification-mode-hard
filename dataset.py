@@ -45,7 +45,7 @@ class LabeledDataset(torchvision.datasets.VisionDataset):
         img_path = self.dataset_info.iloc[index]['sample']
         label = self.dataset_info.iloc[index]['label']
         img = self.pil_loader(os.path.join(self.rootdir, img_path))
-        return self.transforms(img), label
+        return self.transforms(img), label, index
         # img, label = self.images_labels[index]
         # return img, label
 
