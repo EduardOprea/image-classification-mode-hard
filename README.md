@@ -35,5 +35,9 @@ If you want to train an ensemble network ( by default it will be resnet152 + den
   --resnet_ckpt $RESNET_CKPT --densenet_ckpt $DENSENET_CKPT --vgg_ckpt $VGG_CKPT
 ```
 
+Credits to the following repositories :   
 
+https://github.com/sthalles/SimCLR  
+
+https://github.com/yikun2019/PENCIL
 
