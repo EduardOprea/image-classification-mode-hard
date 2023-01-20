@@ -429,6 +429,7 @@ def validate(val_loader, model, criterion):
     return top1.avg
      
 def train_noise_correction(trainloader, valloader, optimizer, y_file, run_args: RunMetadata):
+    print("y file ", y_file)
     best_prec1 = 0.0
     for epoch in range(run_args.num_epochs):
         #adjust_learning_rate(optimizer, epoch, run_args)
@@ -546,11 +547,11 @@ def update_weights_noise_correction(train_loader, model, criterion, optimizer, e
     if epoch < run_args.stage2:
         # save y_tilde
         y = new_y
-        y_file = run_args.results_dir + "y.npy"
+        y_file = os.path.join(run_args.results_dir, "y.npy")
         print("Saving y to ", y_file)
         np.save(y_file,y)
-        y_record = run_args.results_dir + "y_%03d.npy" % epoch
-        np.save(y_record,y)
+        # y_record = run_args.results_dir + "y_%03d.npy" % epoch
+        # np.save(y_record,y)
 
 if __name__ == '__main__':
     args = parse_command_line_arguments()
@@ -607,7 +608,7 @@ if __name__ == '__main__':
         optimizer = torch.optim.SGD(model.parameters(), run_args.lr,
                                     momentum=run_args.momentum,
                                     weight_decay=args.weight_decay)
-        train_noise_correction(train_loader, val_loader, optimizer, run_args.results_dir + "y.npy", run_args)
+        train_noise_correction(train_loader, val_loader, optimizer, os.path.join(run_args.results_dir, "y.npy"), run_args)
     else:
         
         train_model(model, device, dataloaders, criterion, optimizer, run_args)
