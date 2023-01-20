@@ -605,9 +605,9 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(label_smoothing=args.smooth_rate)
 
     if args.use_noise_correction:
-        optimizer = torch.optim.SGD(model.parameters(), run_args.lr,
-                                    momentum=run_args.momentum,
-                                    weight_decay=args.weight_decay)
+        # optimizer = torch.optim.SGD(model.parameters(), run_args.lr,
+        #                             momentum=run_args.momentum,
+        #                             weight_decay=args.weight_decay)
         train_noise_correction(train_loader, val_loader, optimizer, os.path.join(run_args.results_dir, "y.npy"), run_args)
     else:
         
