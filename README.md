@@ -6,8 +6,8 @@ The training procedure can be run with the following command :
 python train.py --model_name resnet50 --rootdir "dataset" --annotations_file "dataset/train_data/annotations.csv" --results_dir "results_expx"
 ```
 
-In our case the annotations csv contains the relative path to the images, so by passing the rootdir option,
-the relative path from the csv will be appended to the root directory.
+In the case of my datataset annotations csv contains two columns: 'sample' -> the relative path to the images and 'label'. By passing the rootdir option,
+the relative path from the csv will be appended to the root directory. To use the same code with dataset in another format, the simplest is to replace the instantiation of the LabeledDataset class from train.py with your own dataset.
 
 The network checkpoints, the tensorboard logs and a JSON file with the hyperparameter configuration named run_metadata.json will be saved in the **results_dir**.
 
